@@ -1,0 +1,46 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Интеграция портала и 1С через RabbitMQ (с обновлением статуса заказа)
+
+' Акторы
+Person(SiteManager, "Sales Manager (Portal)", "Создает заказы на сайте")
+Person(StoreManager, "Warehouse Manager (1C)", "Оформляет продажи и указывает состояние заказа")
+
+' Системы
+System_Boundary(Portal, "Corporate Portal") {
+    Container(PortalUI, "Web UI", "Web App", "Форма для создания заказов")
+    Container(PortalService, "Order Service", "Service", "Формирует JSON заказов")
+    Container(PortalDB, "Portal Database", "DB", "Хранит заказы и статусы")
+}
+
+System_Boundary(Rabbit, "RabbitMQ") {
+    Container(OrdersQueue, "Orders Queue", "AMQP", "Очередь заказов")
+    Container(StatusQueue, "Status Queue", "AMQP", "Очередь статусов заказов")
+}
+
+System_Boundary(OneC, "1C:Enterprise") {
+    Container(IntegrationModule, "Integration Module", "1C Module", "Подписка/публикация в RabbitMQ")
+    Container(CustomerOrder, "CustomerOrder", "Document", "Документ 'ЗаказПокупателя'")
+    Container(GoodsIssue, "GoodsIssue", "Document", "Документ 'РасходТовара'")
+}
+
+' Связи
+Rel(SiteManager, PortalUI, "Создает заказ")
+Rel(PortalUI, PortalService, "Передает заказ")
+Rel(PortalService, PortalDB, "Сохраняет заказ")
+Rel(PortalService, OrdersQueue, "Публикует JSON заказа", "AMQP")
+
+Rel(OrdersQueue, IntegrationModule, "Передает заказ", "AMQP")
+Rel(IntegrationModule, CustomerOrder, "Создает документ 'ЗаказПокупателя'")
+Rel(StoreManager, GoodsIssue, "Оформляет расход по заказу")
+Rel(StoreManager, CustomerOrder, "Устанавливает состояние заказа (Выполнен/Отменен)")
+
+Rel(CustomerOrder, IntegrationModule, "Формирует JSON статуса")
+Rel(IntegrationModule, StatusQueue, "Публикует статус заказа", "AMQP")
+Rel(StatusQueue, PortalService, "Передает статус заказа", "AMQP")
+Rel(PortalService, PortalDB, "Обновляет статус заказа")
+Rel(PortalUser, PortalUI, "Просматривает заказы и статусы")
+
+@enduml
