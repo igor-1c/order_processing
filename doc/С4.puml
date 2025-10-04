@@ -1,6 +1,7 @@
 @startuml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4.puml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
 title Интеграция портала и 1С через RabbitMQ (с обновлением статуса заказа)
 
@@ -21,10 +22,18 @@ System_Boundary(Rabbit, "RabbitMQ") {
 }
 
 System_Boundary(OneC, "1C:Enterprise") {
-    Container(IntegrationModule, "Integration Module", "1C Module", "Подписка/публикация в RabbitMQ")
-    Container(CustomerOrder, "CustomerOrder", "Document", "Документ 'ЗаказПокупателя'")
-    Container(GoodsIssue, "GoodsIssue", "Document", "Документ 'РасходТовара'")
+    Container(IntegrationModule, "Integration Module", "1C Module", "Обеспечивает обмен с RabbitMQ")
+    Container(OneCDB, "1C Database", "DB", "Хранит документы (CustomerOrder, GoodsIssue) и статусы")
 }
+
+Container_Boundary(OneC, "1C:Enterprise") {
+    Component(CustomerOrder, "ЗаказПокупателя", "Document", "Документ 'ЗаказПокупателя'")
+    Component(GoodsIssue, "Продажа", "Document", "Документ 'Продажа товара'")
+    Component(IntegrationModule, "Integration Module", "1C Module", "Подписка/публикация в RabbitMQ")
+}
+
+Rel(CustomerOrder, IntegrationModule, "Формирует JSON статуса")
+Rel(GoodsIssue, IntegrationModule, "Используется для оформления расхода")
 
 ' Связи
 Rel(SiteManager, PortalUI, "Создает заказ")
@@ -41,6 +50,6 @@ Rel(CustomerOrder, IntegrationModule, "Формирует JSON статуса")
 Rel(IntegrationModule, StatusQueue, "Публикует статус заказа", "AMQP")
 Rel(StatusQueue, PortalService, "Передает статус заказа", "AMQP")
 Rel(PortalService, PortalDB, "Обновляет статус заказа")
-Rel(PortalUser, PortalUI, "Просматривает заказы и статусы")
+
 
 @enduml
